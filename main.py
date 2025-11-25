@@ -1,25 +1,32 @@
-import os
-from dotenv import load_dotenv
-from google import genai
-
 import sys
+import os
+from agent.core.qa_agent import QAAgent
+
 def main():
-    load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    client = genai.Client(api_key=api_key)
     if len(sys.argv) < 2:
-        print("i need a prompt")
+        print("Usage: python main.py <file_to_test.py>")
         sys.exit(1)
-    prompte = sys.argv[1]
 
-    response = client.models.generate_content(model="gemini-2.0-flash", 
-        contents=prompte
-    )
+    target_file = sys.argv[1]
+    
+    if not os.path.exists(target_file):
+        print(f"Error: File '{target_file}' not found.")
+        sys.exit(1)
 
-    print(response.text)
+    print(f"🚀 Starting QA Agent on {target_file}...")
+    
+    try:
+        agent = QAAgent()
+        success = agent.run(target_file)
+        
+        if success:
+            sys.exit(0)
+        else:
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
 
-    print(response.usage_metadata.prompt_token_count)
-    print(response.usage_metadata.candidates_token_count)
-    print(sys.argv)
-
-main()
+if __name__ == "__main__":
+    main()
