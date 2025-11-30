@@ -50,3 +50,56 @@ OR
     "content": "... fixed target code ..."
 }}
 """
+
+PROJECT_SCAN_PROMPT = """
+You are a Lead Software Architect. Your goal is to analyze the provided file structure and code summaries to understand the project's architecture and identify key integration points.
+
+**Project Structure:**
+{file_list}
+
+**Instructions:**
+1. Analyze the file names and structure to infer the project type (e.g., CLI, Web App, Library).
+2. Identify the core modules and their likely responsibilities.
+3. Identify potential critical paths or complex workflows that involve multiple modules (e.g., "User Login Flow", "Data Processing Pipeline").
+4. Return a JSON object describing the architecture and suggested integration test scenarios.
+
+**Output Format (JSON):**
+{{
+    "project_type": "...",
+    "core_modules": ["module1", "module2"],
+    "integration_scenarios": [
+        {{
+            "name": "Scenario Name",
+            "description": "Description of the flow...",
+            "involved_modules": ["module1", "module2"]
+        }}
+    ]
+}}
+"""
+
+INTEGRATION_TEST_PROMPT = """
+You are an expert Python QA Engineer. Your goal is to write an INTEGRATION TEST for a specific scenario involving multiple modules.
+
+**Scenario:**
+Name: {scenario_name}
+Description: {scenario_description}
+
+**Involved Modules & Code:**
+{code_context}
+
+**Instructions:**
+1. Write a `pytest` test file that verifies this scenario.
+2. **IMPORTS:** You MUST use absolute imports assuming the project root is the working directory. 
+   - Example: `from agent.tools import file_ops` (NOT `import file_ops`)
+   - Example: `from agent.core.qa_agent import QAAgent`
+   - Example: `import main` (if in root)
+3. **MOCKING:** Mock external dependencies (APIs, Databases). Use `unittest.mock` or `pytest-mock`.
+4. **REAL CODE:** Use the REAL implementations of the modules listed in "Involved Modules". Do not mock the code under test.
+5. **VALIDITY:** Do not invent functions that don't exist in the provided code context. If you don't see a function, don't call it.
+6. Return ONLY the Python code.
+
+**Output:**
+```python
+... test code ...
+```
+"""
