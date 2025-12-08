@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 
 from agent.tools.file_ops import read_file, write_file, list_files
 from agent.tools.test_runner import run_pytest
+from agent.tools.search_tool import search_in_files
+from agent.tools.system_tool import run_command
+from agent.memory.conversation_memory import ConversationMemory
 from agent.prompts.qa_prompts import PROJECT_SCAN_PROMPT, INTEGRATION_TEST_PROMPT
 
 class ProjectQAAgent:
@@ -18,6 +21,7 @@ class ProjectQAAgent:
         self.model = "gemini-2.0-flash"
         self.root_dir = root_dir
         self.test_dir = os.path.join(root_dir, "tests", "integration")
+        self.memory = ConversationMemory()
 
     def scan_project(self):
         """Scans the project structure and identifies integration scenarios."""
@@ -29,6 +33,9 @@ class ProjectQAAgent:
         
         prompt = PROJECT_SCAN_PROMPT.format(file_list=file_list_str)
         
+        # Add to memory
+        self.memory.add_message("user", f"Scan project with files: {file_list_str}")
+
         response = self.client.models.generate_content(
             model=self.model,
             contents=[types.Content(role="user", parts=[types.Part(text=prompt)])],
@@ -38,6 +45,7 @@ class ProjectQAAgent:
         try:
             analysis = json.loads(response.text)
             print(f"✅ Project Analysis: {analysis.get('project_type', 'Unknown')}")
+            self.memory.add_message("model", json.dumps(analysis))
             return analysis
         except json.JSONDecodeError:
             print("❌ Failed to parse project analysis.")
@@ -91,6 +99,35 @@ class ProjectQAAgent:
         else:
             print("❌ Some tests failed.")
             # print(result["stdout"])
+
+    def search_code(self, query: str):
+        """Searches for code in the project."""
+        print(f"🔎 Searching for '{query}'...")
+        results = search_in_files(query, self.root_dir)
+        for res in results[:5]: # Show top 5
+            print(res)
+        return results
+
+    def execute_system_command(self, command: str):
+        """Executes a system command."""
+        print(f"💻 Executing: {command}")
+        output = run_command(command)
+        print(output)
+        return output
+
+    def chat(self, message: str):
+        """Simple chat interface with memory."""
+        self.memory.add_message("user", message)
+        context = self.memory.get_context_string()
+        
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=[types.Content(role="user", parts=[types.Part(text=f"Context:\n{context}\n\nUser: {message}")])]
+        )
+        
+        reply = response.text
+        self.memory.add_message("model", reply)
+        return reply
 
     def _find_file(self, module_name: str) -> str:
         """Helper to find a file path given a module name (fuzzy match)."""
